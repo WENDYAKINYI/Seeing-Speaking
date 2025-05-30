@@ -21,6 +21,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- Model Loading ---
 @st.cache_resource
+@st.cache_resource
+def get_models():
+    return load_baseline_model()
+
+encoder, decoder, vocab = get_models()
+
 # --- Helper Functions ---
 def encode_image_to_base64(image):
     """Convert PIL image to base64 for OpenAI API"""
@@ -103,8 +109,7 @@ if image:
     with col1:
         st.subheader("🧠 Baseline CNN+RNN Model")
         with st.spinner("Generating baseline CNN-RNN caption..."):
-            encoder, decoder, vocab = load_baseline_model()
-            baseline_result = generate_baseline_caption(
+           baseline_result = generate_baseline_caption(
                 image_tensor=image_tensor,
                 encoder=encoder,
                 decoder=decoder,
