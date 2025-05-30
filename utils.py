@@ -6,8 +6,10 @@ from PIL import Image
 import requests
 from io import BytesIO
 from models import EncoderCNN, DecoderRNN
-
 from huggingface_hub import hf_hub_download
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def download_file_from_hf(filename):
     return hf_hub_download(
@@ -29,14 +31,14 @@ def load_baseline_model():
     decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=10004).eval()
     
     # Download and load weights
-    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location="cpu"))
+    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location=device))
 
-    decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), map_location="cpu"))
+    decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), map_location=device))
     
     # Load vocabulary
     vocab = {
-        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), map_location="cpu"), 
-        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), map_location="cpu")
+        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), map_location=device), 
+        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), map_location=device)
     }
     
     return encoder, decoder, vocab
