@@ -6,6 +6,7 @@ import openai
 import requests
 from io import BytesIO
 import numpy as np
+from utils import generate_baseline_caption, enhance_with_openai
 
 # --- Configuration ---
 st.set_page_config(page_title="Caption Showdown", layout="wide")
@@ -51,39 +52,21 @@ def load_baseline_model():
     return encoder, decoder, vocab
 
 # --- Image Processing ---
-def preprocess_image(image):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                           std=[0.229, 0.224, 0.225])
-    ])
-    return transform(image).unsqueeze(0).to(device)
+# Generate baseline caption
+result = generate_baseline_caption(
+    image_tensor, 
+    encoder, 
+    decoder, 
+    vocab,
+    beam_size=5
+)
 
-# --- Caption Generation ---
-def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3):
-    # Your beam search implementation here
-    # Return: {"caption": str, "confidence": float}
-    pass
-
-def enhance_with_openai(caption):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{
-            "role": "system",
-            "content": "Improve this image caption while being concise and factual:"
-        }, {
-            "role": "user",
-            "content": caption
-        }],
-        temperature=0.7,
-        max_tokens=100
-    )
-    return response.choices[0].message.content
+# Enhance with OpenAI
+enhanced = enhance_with_openai(result["caption"])
 
 # --- UI Layout ---
-st.title("🆚 Caption Showdown: Baseline vs OpenAI")
-st.caption("Compare our custom CNN-RNN model against GPT-3.5 enhancements")
+st.title("Vision to Text: Baseline 🆚 OpenAI")
+st.caption("Compare a custom CNN-RNN model against OpenAI GPT-3.5")
 
 # Sidebar
 with st.sidebar:
