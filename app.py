@@ -6,7 +6,13 @@ import openai
 import requests
 from io import BytesIO
 import numpy as np
-from utils import generate_baseline_caption, enhance_with_openai
+from utils import (
+    load_baseline_model,
+    generate_baseline_caption,
+    enhance_with_openai,
+    load_image,
+    preprocess_image
+)
 
 # --- Configuration ---
 st.set_page_config(page_title="Caption Showdown", layout="wide")
