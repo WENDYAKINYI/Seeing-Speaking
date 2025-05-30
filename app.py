@@ -6,9 +6,6 @@ import openai
 import requests
 from io import BytesIO
 import numpy as np
-from model import EncoderCNN, DecoderRNN  # Your model classes
-import requests
-from io import BytesIO
 
 # --- Configuration ---
 st.set_page_config(page_title="Caption Showdown", layout="wide")
@@ -29,23 +26,14 @@ def load_baseline_model():
         response = requests.get(url)
         return BytesIO(response.content)
     
-    # Initialize models first
-    encoder = EncoderCNN().eval().to(device)
-    decoder = DecoderRNN(
-        attention_dim=256,
-        embed_dim=256,
-        decoder_dim=512,
-        vocab_size=10004  # Update with your actual vocab size
-    ).eval().to(device)
-    
-    # Load state dicts
-    encoder.load_state_dict(torch.load(download_file(model_files["encoder"]), map_location=device))
-    decoder.load_state_dict(torch.load(download_file(model_files["decoder"]), map_location=device))
+    # Load models
+    encoder = torch.jit.load(download_file(model_files["encoder"]), map_location=device)
+    decoder = torch.jit.load(download_file(model_files["decoder"]), map_location=device)
     
     # Load vocab
     vocab = {
-        "word2idx": torch.load(download_file(model_files["word2idx"]), map_location='cpu'),
-        "idx2word": torch.load(download_file(model_files["idx2word"]), map_location='cpu')
+        "word2idx": torch.load(download_file(model_files["word2idx"])),
+        "idx2word": torch.load(download_file(model_files["idx2word"]))
     }
     
     return encoder, decoder, vocab
