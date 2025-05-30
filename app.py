@@ -1,145 +1,103 @@
 import streamlit as st
 import torch
+from torchvision import transforms
 from PIL import Image
-import numpy as np
+import pickle
+from model import EncoderCNN, DecoderRNN
+from utils import clean_caption, generate_caption
 import openai
-from transformers import pipeline
-import json
-import os
 
 # --- Configuration ---
-st.set_page_config(page_title="AI Caption Generator", layout="wide")
-device = "cpu"  # Force CPU-only
+st.set_page_config(page_title="Image Captioning Comparison", layout="wide")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- Secrets Management ---
-openai_key = st.secrets.get("OPENAI_KEY")  # Set in Streamlit Secrets
-if not openai_key:
-    st.warning("GPT-3.5 disabled - no API key found")
-
-# --- Model Loading (CPU Optimized) ---
+# --- Model Loading ---
 @st.cache_resource
 def load_models():
-    # Baseline Model (Quantized)
-    @st.cache_data
-    def load_baseline():
-        encoder = torch.jit.load("models/encoder_quantized.pt", map_location=device)
-        decoder = torch.jit.load("models/decoder_quantized.pt", map_location=device)
-        with open("models/vocab.json") as f:
-            vocab = json.load(f)
-        return encoder, decoder, vocab
+    encoder = EncoderCNN().eval().to(device)
+    decoder = DecoderRNN(
+        attention_dim=256,
+        embed_dim=256,
+        decoder_dim=512,
+        vocab_size=len(word2idx)
+    ).eval().to(device)
+    
+    encoder.load_state_dict(torch.load("baseline_model/encoder.pth", map_location=device))
+    decoder.load_state_dict(torch.load("baseline_model/decoder.pth", map_location=device))
+    return encoder, decoder
 
-    # CLIP-GPT2 (Hugging Face Pipeline)
-    @st.cache_data
-    def load_clip_gpt():
-        return pipeline(
-            "image-to-text",
-            model="nlpconnect/vit-gpt2-image-captioning",
-            device=-1  # CPU
-        )
+# --- Load Vocab ---
+with open("baseline_model/word2idx.pkl", "rb") as f:
+    word2idx = pickle.load(f)
+with open("baseline_model/idx2word.pkl", "rb") as f:
+    idx2word = pickle.load(f)
 
-    return load_baseline(), load_clip_gpt()
+# --- Image Transforms ---
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                       std=[0.229, 0.224, 0.225])
+])
 
-# --- Beam Search Implementation ---
-def generate_beam_caption(image_tensor, encoder, decoder, vocab, beam_size=3):
-    # Your beam search implementation here
-    # Should return: {"caption": str, "confidence": float}
-    pass
-
-# --- GPT-3.5 Enhanced Captions ---
-def enhance_with_gpt3(caption, image_description):
-    if not openai_key:
+# --- GPT-3 Enhancement ---
+def enhance_caption(caption):
+    if 'openai_key' not in st.secrets:
         return None
         
-    prompt = f"""Improve this image caption while staying factual:
-    
-    Original: {caption}
-    Image Content: {image_description}
-    
-    Enhanced version:"""
-    
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=100,
-        temperature=0.7
+        messages=[{
+            "role": "system", 
+            "content": "Improve this image caption keeping the original meaning:"
+        }, {
+            "role": "user",
+            "content": caption
+        }],
+        temperature=0.7,
+        max_tokens=100
     )
     return response.choices[0].message.content
 
-# --- UI Components ---
-def image_uploader():
+# --- Feedback System ---
+def log_feedback(model_type, rating):
+    with open("feedback.log", "a") as f:
+        f.write(f"{model_type},{rating}\n")
+
+# --- Streamlit UI ---
+st.title("📸 Image Captioning Demo")
+uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
+
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+    
+    # Generate captions
+    encoder, decoder = load_models()
+    tensor_image = transform(image).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        encoder_out = encoder(tensor_image)
+        caption = generate_caption(encoder_out, decoder, word2idx, idx2word, beam_size=3)  # Added beam search
+    
+    # Display with feedback
+    st.subheader("Generated Caption")
+    st.write(caption)
+    
     col1, col2 = st.columns(2)
     with col1:
-        uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png"])
+        if st.button("👍 Like"):
+            log_feedback("baseline", 1)
+            st.success("Thanks for your feedback!")
     with col2:
-        example = st.selectbox("Try Examples", ["Beach", "Dog", "Food"])
-        example_img = Image.open(f"examples/{example.lower()}.jpg")
-    return uploaded_file or example_img
-
-def display_results(col, title, caption, source):
-    with col:
-        st.subheader(title)
-        st.write(caption)
-        
-        # Confidence indicator
-        if "confidence" in caption:
-            st.progress(min(caption["confidence"], 1.0))
-        
-        # Feedback buttons
-        if st.button("👍", key=f"{source}_like"):
-            log_feedback(source, 1)
-        st.button("👎", key=f"{source}_dislike")
-        
-        # GPT-3.5 enhancement
-        if openai_key and st.checkbox("Enhance with AI", key=f"enhance_{source}"):
-            with st.spinner("Generating enhanced version..."):
-                enhanced = enhance_with_gpt3(
-                    caption["caption"] if isinstance(caption, dict) else caption,
-                    st.session_state.get("image_description", "")
-                )
-                if enhanced:
-                    st.success(enhanced)
-
-def log_feedback(model_name, rating):
-    # Log to a file or database
-    with open("feedback.log", "a") as f:
-        f.write(f"{model_name},{rating}\n")
-
-# --- Main App ---
-def main():
-    st.title("📷 AI Caption Generator")
+        if st.button("👎 Dislike"):
+            log_feedback("baseline", 0)
+            st.error("We'll improve!")
     
-    # Load models
-    (encoder, decoder, vocab), clip_gpt = load_models()
-    
-    # Image input
-    image = image_uploader()
-    if image:
-        st.image(image, width=500)
-        st.session_state["image_description"] = (
-            "Contains " + ", ".join(get_image_tags(image))  # Implement this
-        
-        # Generate captions
-        col1, col2 = st.columns(2)
-        
-        # Baseline with Beam Search
-        with st.spinner("Generating baseline caption..."):
-            img_tensor = preprocess_image(image)  # Implement
-            baseline_caption = generate_beam_caption(img_tensor, encoder, decoder, vocab)
-            display_results(col1, "🔍 Baseline", baseline_caption, "baseline")
-        
-        # CLIP-GPT2
-        with st.spinner("Generating CLIP-GPT2 caption..."):
-            clip_result = clip_gpt(image)
-            display_results(col2, "🎨 CLIP-GPT2", clip_result[0], "clip_gpt")
-        
-        # Feedback analytics
-        st.divider()
-        if st.checkbox("Show feedback stats"):
-            try:
-                df = pd.read_csv("feedback.log", names=["model", "rating"])
-                st.bar_chart(df.groupby("model").mean())
-            except:
-                st.write("No feedback yet")
-
-if __name__ == "__main__":
-    main()
+    # GPT-3 Enhancement Toggle
+    if st.checkbox("Enhance with AI"):
+        with st.spinner("Generating enhanced version..."):
+            enhanced = enhance_caption(caption)
+            if enhanced:
+                st.subheader("Enhanced Version")
+                st.write(enhanced)
