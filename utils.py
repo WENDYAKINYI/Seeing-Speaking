@@ -28,7 +28,7 @@ def load_baseline_model():
 
     # Initialize model architecture
     encoder = EncoderCNN().eval()
-    decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=10004).eval()
+    decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=len(vocab)).eval()
     
     # Download and load weights
     encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), strict=False, map_location=device))
@@ -37,8 +37,8 @@ def load_baseline_model():
     
     # Load vocabulary
     vocab = {
-        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), strict=False, map_location=device), 
-        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), strict=False, map_location=device)
+        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), map_location=device), 
+        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), map_location=device)
     }
     
     return encoder, decoder, vocab
