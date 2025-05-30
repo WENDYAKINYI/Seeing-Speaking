@@ -4,6 +4,7 @@ import openai
 import numpy as np
 from PIL import Image
 import requests
+import pickle
 from io import BytesIO
 from models import EncoderCNN, DecoderRNN
 from huggingface_hub import hf_hub_download
@@ -26,11 +27,17 @@ def load_baseline_model():
         "idx2word": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/idx2word.pkl"
     }
     # Load vocabulary
-    vocab = {
-        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), map_location=device), 
-        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), map_location=device)
-    }
+    with open(download_file_from_hf("word2idx.pkl"), "rb") as f:
+    word2idx = pickle.load(f)
+    with open(download_file_from_hf("idx2word.pkl"), "rb") as f:
+    idx2word = pickle.load(f)
 
+    vocab = {
+    "word2idx": word2idx,
+    "idx2word": idx2word
+}
+
+    
     # Now safe to get vocab_size
     vocab_size = len(vocab["word2idx"])
     
