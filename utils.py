@@ -7,7 +7,14 @@ import requests
 from io import BytesIO
 from models import EncoderCNN, DecoderRNN
 
+from huggingface_hub import hf_hub_download
 
+def download_file_from_hf(filename):
+    return hf_hub_download(
+        repo_id="weakyy/image-captioning-baseline-model",
+        filename=filename,
+        repo_type="model"
+    )
 # Model loading from Hugging Face
 def load_baseline_model():
     model_files = {
@@ -22,8 +29,8 @@ def load_baseline_model():
     decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=10004).eval()
     
     # Download and load weights
-    encoder.load_state_dict(torch.load(download_file(model_files["encoder"])))
-    decoder.load_state_dict(torch.load(download_file(model_files["decoder"])))
+    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth")))
+    decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth")))
     
     # Load vocabulary
     vocab = {
