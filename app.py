@@ -21,7 +21,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- Model Loading ---
 @st.cache_resource
-@st.cache_resource
 def get_models():
     return load_baseline_model()
 
@@ -60,7 +59,7 @@ def get_gpt4_vision_caption(base64_image):
 
 # --- UI Layout ---
 st.title("Vision to Text: Baseline 🆚 OpenAI")
-st.caption("Compare:Baseline CNN-RNN model| Baseline GPT-3.5 Enhanced| GPT-4 Vision")
+st.caption("Compare:Baseline CNN-RNN model | GPT-3.5 Enhanced | GPT-4 Vision")
 
 # Sidebar
 with st.sidebar:
@@ -95,21 +94,17 @@ else:
     image = load_image(uploaded_file)
 
 if image:
-    # Display image
     st.image(image, caption="Input Image", use_container_width=True)
-
-    # Preprocess image
-    image_tensor = preprocess_image(image, device)  # This defines image_tensor
+    image_tensor = preprocess_image(image, device)
     base64_image = encode_image_to_base64(image)
 
-    # Generate captions
     col1, col2, col3 = st.columns(3)
 
     # 1. Baseline Model
     with col1:
         st.subheader("🧠 Baseline CNN+RNN Model")
         with st.spinner("Generating baseline CNN-RNN caption..."):
-           baseline_result = generate_baseline_caption(
+            baseline_result = generate_baseline_caption(
                 image_tensor=image_tensor,
                 encoder=encoder,
                 decoder=decoder,
@@ -119,11 +114,10 @@ if image:
             st.success(baseline_result["caption"])
             st.caption(f"Confidence: {baseline_result['confidence']:.0%}")
 
-            # Feedback
-         st.write("Rate this caption:")
-         if st.button("👍", key="like_baseline"):
-             st.toast("Thanks for your feedback!")
-         st.button("👎", key="dislike_baseline")
+        st.write("Rate this caption:")
+        if st.button("👍", key="like_baseline"):
+            st.toast("Thanks for your feedback!")
+        st.button("👎", key="dislike_baseline")
 
     # 2. GPT-3.5 Enhanced Baseline Model
     with col2:
@@ -138,7 +132,6 @@ if image:
         else:
             st.warning("Enable OpenAI in sidebar")
 
-        # Feedback
         st.write("Rate this enhancement:")
         if st.button("👍", key="like_openai_enhancement"):
             st.toast("Thanks for your feedback!")
