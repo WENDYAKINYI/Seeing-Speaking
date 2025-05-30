@@ -6,3 +6,4 @@ openai
 requests
 numpy
 pybase64
+huggingface_hub
