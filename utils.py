@@ -25,22 +25,25 @@ def load_baseline_model():
         "word2idx": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/word2idx.pkl",
         "idx2word": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/idx2word.pkl"
     }
+    # Load vocabulary
+    vocab = {
+        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), map_location=device), 
+        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), map_location=device)
+    }
 
+    # Now safe to get vocab_size
+    vocab_size = len(vocab["word2idx"])
+    
     # Initialize model architecture
     encoder = EncoderCNN().eval()
-    decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=len(vocab)).eval()
+    decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=vocab_size).eval()
     
     # Download and load weights
     encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), strict=False, map_location=device))
 
     decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), strict=False, map_location=device))
     
-    # Load vocabulary
-    vocab = {
-        "word2idx": torch.load(download_file_from_hf("word2idx.pkl"), map_location=device), 
-        "idx2word": torch.load(download_file_from_hf("idx2word.pkl"), map_location=device)
-    }
-    
+        
     return encoder, decoder, vocab
 
 def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
