@@ -6,6 +6,31 @@ from PIL import Image
 import requests
 from io import BytesIO
 
+# Model loading from Hugging Face
+def load_baseline_model():
+    model_files = {
+        "encoder": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/encoder.pth",
+        "decoder": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/decoder.pth",
+        "word2idx": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/word2idx.pkl",
+        "idx2word": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/idx2word.pkl"
+    }
+
+    # Initialize model architecture
+    encoder = EncoderCNN().eval()
+    decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=10004).eval()
+    
+    # Download and load weights
+    encoder.load_state_dict(torch.load(download_file(model_files["encoder"])))
+    decoder.load_state_dict(torch.load(download_file(model_files["decoder"])))
+    
+    # Load vocabulary
+    vocab = {
+        "word2idx": torch.load(download_file(model_files["word2idx"]), 
+        "idx2word": torch.load(download_file(model_files["idx2word"]))
+    }
+    
+    return encoder, decoder, vocab
+
 def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
     """
     Generate caption using beam search with attention
