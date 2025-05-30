@@ -120,10 +120,10 @@ if image:
             st.caption(f"Confidence: {baseline_result['confidence']:.0%}")
 
             # Feedback
-            st.write("Rate this caption:")
-            if st.button("👍", key="like_baseline"):
-                st.toast("Thanks for your feedback!")
-            st.button("👎", key="dislike_baseline")
+         st.write("Rate this caption:")
+         if st.button("👍", key="like_baseline"):
+             st.toast("Thanks for your feedback!")
+         st.button("👎", key="dislike_baseline")
 
     # 2. GPT-3.5 Enhanced Baseline Model
     with col2:
