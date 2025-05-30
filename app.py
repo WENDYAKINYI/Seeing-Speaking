@@ -20,60 +20,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- Model Loading ---
 @st.cache_resource
-def load_baseline_model():
-    model_files = {
-        "encoder": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/encoder.pth",
-        "decoder": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/decoder.pth",
-        "word2idx": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/word2idx.pkl",
-        "idx2word": "https://huggingface.co/weakyy/image-captioning-baseline-model/resolve/main/idx2word.pkl"
-    }
-
-    # Download files
-    def download_file(url):
-        response = requests.get(url)
-        return BytesIO(response.content)
-    
-    # Initialize models first
-    encoder = EncoderCNN().eval().to(device)
-    decoder = DecoderRNN(
-        attention_dim=256,
-        embed_dim=256,
-        decoder_dim=512,
-        vocab_size=10004  # Update with your actual vocab size
-    ).eval().to(device)
-    
-    # Load weights
-    enc_file = download_file(model_files["encoder"])
-    dec_file = download_file(model_files["decoder"])
-    if enc_file and dec_file:
-        encoder.load_state_dict(torch.load(enc_file, map_location=device))
-        decoder.load_state_dict(torch.load(dec_file, map_location=device))
-    
-    # Load vocab
-    vocab = {
-        "word2idx": torch.load(download_file(model_files["word2idx"]), map_location='cpu'),
-        "idx2word": torch.load(download_file(model_files["idx2word"]), map_location='cpu')
-    }
-    
-    return encoder, decoder, vocab
-
-# --- Image Processing ---
-# Generate baseline caption
-result = generate_baseline_caption(
-    image_tensor, 
-    encoder, 
-    decoder, 
-    vocab,
-    beam_size=5
-)
-
-# Enhance with OpenAI
-enhanced = enhance_with_openai(result["caption"])
+def load_models():
+    return load_baseline_model()
 
 # --- UI Layout ---
 st.title("Vision to Text: Baseline 🆚 OpenAI")
 st.caption("Compare a custom CNN-RNN model against OpenAI GPT-3.5")
 
+encoder, decoder, vocab = load_models()
 # Sidebar
 with st.sidebar:
     st.header("Settings")
@@ -85,33 +39,49 @@ with st.sidebar:
     - OpenAI: GPT-3.5 Turbo  
     [View Baseline Model](https://huggingface.co/weakyy/image-captioning-baseline-model)
     """)
+    st.write("Model Status:", 
+    f"Encoder: {'Loaded' if encoder else 'Failed'}",
+    f"Decoder: {'Loaded' if decoder else 'Failed'}",
+    f"Vocab Size: {len(vocab['word2idx']) if vocab else 0}")
 
 # Main Content
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 example_images = {
-    "Beach": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
-    "Dog": "https://images.unsplash.com/photo-1561037404-61cd46aa615b",
-    "Food": "https://images.unsplash.com/photo-1565958011703-72f8583c2708"
+    "Beach": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600",
+    "Dog": "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=600",
+    "Food": "https://images.unsplash.com/photo-1565958011703-72f8583c2708?w=600"
 }
+selected = st.selectbox("Or try an example:", list(example_images.keys()))
 
-if not uploaded_file:
-    selected = st.selectbox("Or try an example:", list(example_images.keys()))
-    image = Image.open(requests.get(example_images[selected], stream=True).raw)
+# Process image
+if uploaded_file:
+    image = load_image(uploaded_file)
 else:
-    image = Image.open(uploaded_file).convert("RGB")
+    image = load_image(example_images[selected])
 
-st.image(image, caption="Input Image", use_column_width=True)
-
-# Generate Captions
-encoder, decoder, vocab = load_baseline_model()
-image_tensor = preprocess_image(image)
-
-col1, col2 = st.columns(2)
+if image:
+    # Display image
+    st.image(image, caption="Input Image", use_container_width=True)
+    
+    # Preprocess image
+    image_tensor = preprocess_image(image, device)  # This defines image_tensor
+    
+    # Load models
+    encoder, decoder, vocab = load_models()
+    
+    # Generate captions
+    col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("🧠 Baseline Model")
     with st.spinner("Generating baseline caption..."):
-        baseline_result = generate_baseline_caption(image_tensor, encoder, decoder, vocab)
+        baseline_result = generate_baseline_caption(
+                image_tensor=image_tensor,
+                encoder=encoder,
+                decoder=decoder,
+                vocab=vocab,
+                beam_size=3
+            )
         st.success(baseline_result["caption"])
         st.caption(f"Confidence: {baseline_result['confidence']:.0%}")
         
@@ -138,13 +108,13 @@ with col2:
     else:
         st.error("Add OpenAI key in secrets.toml")
 
-# Performance Metrics
-with st.expander("📊 Performance Comparison"):
-    st.table({
-        "Model": ["Baseline", "OpenAI Enhanced"],
-        "BLEU-4": [0.42, 0.61],
-        "Inference Time": ["1.2s", "2.8s"]
-    })
+# # Performance Metrics
+# with st.expander("📊 Performance Comparison"):
+#     st.table({
+#         "Model": ["Baseline", "OpenAI Enhanced"],
+#         "BLEU-4": [0.42, 0.61],
+#         "Inference Time": ["1.2s", "2.8s"]
+#     })
 
 # Footer
 st.divider()
