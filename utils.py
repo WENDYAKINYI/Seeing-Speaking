@@ -5,6 +5,8 @@ import numpy as np
 from PIL import Image
 import requests
 from io import BytesIO
+from models import EncoderCNN, DecoderRNN
+
 
 # Model loading from Hugging Face
 def load_baseline_model():
