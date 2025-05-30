@@ -25,7 +25,7 @@ def load_baseline_model():
     
     # Load vocabulary
     vocab = {
-        "word2idx": torch.load(download_file(model_files["word2idx"]), 
+        "word2idx": torch.load(download_file(model_files["word2idx"])), 
         "idx2word": torch.load(download_file(model_files["idx2word"]))
     }
     
