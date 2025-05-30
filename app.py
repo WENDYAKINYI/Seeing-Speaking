@@ -35,9 +35,12 @@ def load_baseline_model():
         vocab_size=10004  # Update with your actual vocab size
     ).eval().to(device)
     
-    # Load state dicts
-    encoder.load_state_dict(torch.load(download_file(model_files["encoder"]), map_location=device))
-    decoder.load_state_dict(torch.load(download_file(model_files["decoder"]), map_location=device))
+    # Load weights
+    enc_file = download_file(model_files["encoder"])
+    dec_file = download_file(model_files["decoder"])
+    if enc_file and dec_file:
+        encoder.load_state_dict(torch.load(enc_file, map_location=device))
+        decoder.load_state_dict(torch.load(dec_file, map_location=device))
     
     # Load vocab
     vocab = {
