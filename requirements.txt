@@ -7,4 +7,3 @@ requests
 numpy
 pybase64
 huggingface_hub
-pickle
