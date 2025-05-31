@@ -28,9 +28,9 @@ def load_baseline_model():
     }
     # Load vocabulary
     with open(download_file_from_hf("word2idx.pkl"), "rb") as f:
-    word2idx = pickle.load(f)
+        word2idx = pickle.load(f)
     with open(download_file_from_hf("idx2word.pkl"), "rb") as f:
-    idx2word = pickle.load(f)
+        idx2word = pickle.load(f)
 
     vocab = {
     "word2idx": word2idx,
