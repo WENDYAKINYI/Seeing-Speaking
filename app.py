@@ -112,7 +112,7 @@ if image:
                 beam_size=3
             )
             st.success(baseline_result["caption"])
-            st.caption(f"Confidence: {baseline_result['confidence']:.0%}")
+    
 
         st.write("Rate this caption:")
         if st.button("👍", key="like_baseline"):
