@@ -12,7 +12,8 @@ from utils import (
     generate_baseline_caption,
     enhance_with_openai,
     load_image,
-    preprocess_image
+    preprocess_image,
+    get_detected_objects
 )
 
 # --- Configuration ---
@@ -28,13 +29,11 @@ encoder, decoder, vocab = get_models()
 
 # --- Helper Functions ---
 def encode_image_to_base64(image):
-    """Convert PIL image to base64 for OpenAI API"""
     buffered = BytesIO()
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 def get_gpt4_vision_caption(base64_image):
-    """Get standalone caption from GPT-4 Vision"""
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4-vision-preview",
@@ -43,10 +42,7 @@ def get_gpt4_vision_caption(base64_image):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": "Describe this image accurately and concisely."},
-                        {
-                            "type": "image_url",
-                            "image_url": f"data:image/jpeg;base64,{base64_image}"
-                        }
+                        {"type": "image_url", "image_url": f"data:image/jpeg;base64,{base64_image}"}
                     ]
                 }
             ],
@@ -59,7 +55,7 @@ def get_gpt4_vision_caption(base64_image):
 
 # --- UI Layout ---
 st.title("Vision to Text: Baseline 🆚 OpenAI")
-st.caption("Compare:Baseline CNN-RNN model | GPT-3.5 Enhanced | GPT-4 Vision")
+st.caption("Compare: Baseline CNN-RNN model | GPT-3.5 Enhanced | GPT-4 Vision | YOLO Object Detection")
 
 # Sidebar
 with st.sidebar:
@@ -70,6 +66,7 @@ with st.sidebar:
     **Model Details**  
     - Baseline: ResNet50 + Attention LSTM  
     - OpenAI: GPT-3.5 Turbo  
+    - YOLOv5s: Object Detection
     [View Baseline Model](https://huggingface.co/weakyy/image-captioning-baseline-model)
     """)
     st.write("Model Status:", 
@@ -86,7 +83,6 @@ example_images = {
     "Food": "https://images.unsplash.com/photo-1565958011703-72f8583c2708?w=600"
 }
 
-# Process image
 if not uploaded_file:
     selected = st.selectbox("Or try an example:", list(example_images.keys()))
     image = load_image(example_images[selected])
@@ -150,11 +146,21 @@ if image:
         else:
             st.warning("Add OpenAI key to enable")
 
+    # 4. YOLO Object Detection (Below the columns)
+    with st.expander("🔍 YOLOv5 Object Detection"):
+        st.subheader("Detected Objects (YOLOv5s)")
+        with st.spinner("Detecting objects..."):
+            labels = get_detected_objects(image_tensor)
+            if labels:
+                st.success(", ".join(labels))
+            else:
+                st.warning("No objects detected.")
+
 # Footer
 st.divider()
 st.caption("""
 ⚡ **Tip**: Baseline CNN+RNN uses the trained CNN-RNN, GPT-3.5 refines that output, 
-while GPT-4 Vision generates captions directly from pixels
+while GPT-4 Vision generates captions directly from pixels. YOLOv5s detects actual objects in the scene for added context.
 """)
 st.markdown("""
 [GitHub Repo](https://github.com/your-repo) | 
