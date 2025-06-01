@@ -19,6 +19,7 @@ def download_file_from_hf(filename):
         repo_id="weakyy/image-captioning-baseline-model",
         filename=filename,
         repo_type="model"
+        revision="main"
     )
 
 # Model loading from Hugging Face
