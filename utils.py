@@ -23,28 +23,28 @@ def download_file_from_hf(filename):
 
 # Model loading from Hugging Face
 def load_baseline_model():
-    # Load vocabulary
-    with open(download_file_from_hf("word2idx.pkl"), "rb") as f:
-        word2idx = pickle.load(f)
-    with open(download_file_from_hf("idx2word.pkl"), "rb") as f:
-        idx2word = pickle.load(f)
+    # Download and load checkpoint
+    checkpoint_path = download_file_from_hf("best_model.pth")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
 
-    vocab = {
-        "word2idx": word2idx,
-        "idx2word": idx2word
-    }
-
+    # Extract vocab
+    vocab = checkpoint["vocab"]
     vocab_size = len(vocab["word2idx"])
 
-    # Initialize models
-    encoder = EncoderCNN().eval()
-    decoder = DecoderRNN(attention_dim=256, embed_dim=256, decoder_dim=512, vocab_size=vocab_size).eval()
+    # Reconstruct models
+    encoder = EncoderCNN(embed_size=256).to(device)
+    decoder = DecoderRNN(embed_size=256, hidden_size=512, vocab_size=vocab_size).to(device)
 
-    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location=device), strict=False)
-    decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), map_location=device), strict=False)
+    # Load weights
+    encoder.load_state_dict(checkpoint["encoder"])
+    decoder.load_state_dict(checkpoint["decoder"])
 
-    return encoder.to(device), decoder.to(device), vocab
+    encoder.eval()
+    decoder.eval()
 
+    return encoder, decoder, vocab
+
+    
 def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
     encoder_out = encoder(image_tensor)  # (1, num_pixels, encoder_dim)
     encoder_dim = encoder_out.size(-1)
