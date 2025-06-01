@@ -7,3 +7,6 @@ requests
 numpy
 pybase64
 huggingface_hub
+opencv-python
+transformers
+ultralytics
