@@ -23,19 +23,19 @@ def download_file_from_hf(filename):
 
 # Model loading from Hugging Face
 def load_baseline_model():
-    # Download and load checkpoint
+    # ✅ Download correct file
     checkpoint_path = download_file_from_hf("best_model.pth")
     checkpoint = torch.load(checkpoint_path, map_location=device)
 
-    # Extract vocab
+    # ✅ Extract vocab from checkpoint
     vocab = checkpoint["vocab"]
     vocab_size = len(vocab["word2idx"])
 
-    # Reconstruct models
+    # ✅ Rebuild models
     encoder = EncoderCNN(embed_size=256).to(device)
     decoder = DecoderRNN(embed_size=256, hidden_size=512, vocab_size=vocab_size).to(device)
 
-    # Load weights
+    # ✅ Load weights
     encoder.load_state_dict(checkpoint["encoder"])
     decoder.load_state_dict(checkpoint["decoder"])
 
@@ -43,6 +43,7 @@ def load_baseline_model():
     decoder.eval()
 
     return encoder, decoder, vocab
+
 
     
 def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
