@@ -8,18 +8,14 @@ class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
         super(EncoderCNN, self).__init__()
         resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-        modules = list(resnet.children())[:-1]  # Remove final FC layer
-        self.resnet = nn.Sequential(*modules)
-        self.linear = nn.Linear(resnet.fc.in_features, embed_size)
-        self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
+        self.resnet = nn.Sequential(*list(resnet.children())[:-1])  # Remove FC layer
 
     def forward(self, images):
         with torch.no_grad():
             features = self.resnet(images)  # [B, 2048, 1, 1]
-            features = features.view(features.size(0), -1)  # Flatten to [B, 2048]
-        features = self.linear(features)
-        features = self.bn(features)
-        return features  # [B, embed_size]
+            features = features.view(features.size(0), -1)  # [B, 2048]
+        return features
+
 
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1):
