@@ -27,7 +27,7 @@ def download_file_from_hf(filename):
         print(f"Failed to download {filename}: {str(e)}")
         return None
 def load_baseline_model():
-    encoder = EncoderCNN(embed_size=256).to(device)
+    encoder = EncoderCNN(embed_size=2048).to(device)
 
     # We'll load vocab first to get its size
     vocab_path = download_file_from_hf("vocab.pkl")
@@ -35,7 +35,7 @@ def load_baseline_model():
         vocab = pickle.load(f)
 
     decoder = DecoderRNN(
-        embed_size=256,
+        embed_size=2048,
         hidden_size=512,
         vocab_size=len(vocab)
     ).to(device)
