@@ -1,3 +1,5 @@
+# Fixed utils.py
+
 import torch
 import torch.nn.functional as F
 import openai
@@ -26,50 +28,45 @@ def download_file_from_hf(filename):
         return None
 
 def load_baseline_model():
-    # Download vocabulary files
     vocab_path = download_file_from_hf("vocab.pkl")
     idx2word_path = download_file_from_hf("idx2word.pkl")
     word2idx_path = download_file_from_hf("word2idx.pkl")
-    
-    # Load vocabulary
+
     with open(vocab_path, 'rb') as f:
         vocab = pickle.load(f)
     with open(idx2word_path, 'rb') as f:
         idx2word = pickle.load(f)
     with open(word2idx_path, 'rb') as f:
         word2idx = pickle.load(f)
-    
-    # Combine vocab components
+
     vocab = {
         'word2idx': word2idx,
         'idx2word': idx2word,
         **vocab
     }
-    
-    # Download and load encoder
+
     encoder = EncoderCNN(embed_size=256).to(device)
     encoder_path = download_file_from_hf("encoder.pth")
-    encoder.load_state_dict(torch.load(encoder_path, map_location=device))
-    
-    # Download and load decoder
+    encoder.load_state_dict(torch.load(encoder_path, map_location=device), strict=False)
+
     decoder = DecoderRNN(
         embed_size=256,
         hidden_size=512,
         vocab_size=len(vocab['word2idx'])
     ).to(device)
     decoder_path = download_file_from_hf("decoder.pth")
-    decoder.load_state_dict(torch.load(decoder_path, map_location=device))
-    
+    decoder.load_state_dict(torch.load(decoder_path, map_location=device), strict=False)
+
     encoder.eval()
     decoder.eval()
-    
+
     return encoder, decoder, vocab
 
- def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
-    encoder_out = encoder(image_tensor)  # (1, num_pixels, encoder_dim)
+def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
+    features = encoder(image_tensor)
+    encoder_out = features.unsqueeze(1)  # [B, 1, embed_size]
     encoder_dim = encoder_out.size(-1)
     num_pixels = encoder_out.size(1)
-
     encoder_out = encoder_out.expand(beam_size, num_pixels, encoder_dim)
 
     seqs = torch.full((beam_size, 1), vocab['word2idx']['<start>'], dtype=torch.long, device=image_tensor.device)
@@ -83,11 +80,11 @@ def load_baseline_model():
 
     for step in range(max_len):
         prev_words = seqs[:, -1].unsqueeze(1)
-        embeddings = decoder.embedding(prev_words)
-        context, alpha = decoder.attention(encoder_out, h)
+        embeddings = decoder.embed(prev_words)
+        context = encoder_out.mean(dim=1)
         lstm_input = torch.cat([embeddings.squeeze(1), context], dim=1)
-        h, c = decoder.decode_step(lstm_input, (h, c))
-        scores = F.log_softmax(decoder.fc(h), dim=1)
+        h, c = decoder.lstm(lstm_input.unsqueeze(1), (h, c))
+        scores = F.log_softmax(decoder.linear(h[0]), dim=1)
         scores = top_k_scores.expand_as(scores) + scores
 
         if step == 0:
@@ -106,40 +103,31 @@ def load_baseline_model():
         if complete_inds:
             complete_seqs.extend(seqs[complete_inds].tolist())
             complete_seqs_scores.extend(top_k_scores[complete_inds].tolist())
-            complete_seqs_alphas.extend([alpha[i].cpu().numpy() for i in complete_inds])
 
         if len(incomplete_inds) == 0:
             break
 
         seqs = seqs[incomplete_inds]
-        h = h[prev_seq_inds[incomplete_inds]]
-        c = c[prev_seq_inds[incomplete_inds]]
+        h = h[0][prev_seq_inds[incomplete_inds]].unsqueeze(0), h[1][prev_seq_inds[incomplete_inds]].unsqueeze(0)
+        c = c[0][prev_seq_inds[incomplete_inds]].unsqueeze(0), c[1][prev_seq_inds[incomplete_inds]].unsqueeze(0)
         encoder_out = encoder_out[prev_seq_inds[incomplete_inds]]
         top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
 
     if not complete_seqs:
         complete_seqs = seqs.tolist()
         complete_seqs_scores = top_k_scores.tolist()
-        complete_seqs_alphas = alpha.cpu().numpy().tolist()
 
     best_idx = np.argmax(complete_seqs_scores)
     caption_ids = complete_seqs[best_idx]
-    alphas = complete_seqs_alphas[best_idx] if complete_seqs_alphas else []
 
-    caption_words = []
-    for word_id in caption_ids:
-        word = vocab['idx2word'][word_id]
-        if word not in ['<start>', '<end>', '<pad>']:
-            caption_words.append(word)
-        if word == '<end>':
-            break
-
+    caption_words = [vocab['idx2word'][wid] for wid in caption_ids
+                     if vocab['idx2word'][wid] not in ['<start>', '<end>', '<pad>']]
     confidence = min(float(np.exp(np.max(complete_seqs_scores))), 1.0)
 
     return {
         "caption": ' '.join(caption_words),
         "confidence": confidence,
-        "alphas": alphas
+        "alphas": []
     }
 
 def enhance_with_openai(caption, max_tokens=100, temperature=0.7):
