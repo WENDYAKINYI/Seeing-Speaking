@@ -15,39 +15,57 @@ from torchvision import transforms
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def download_file_from_hf(filename):
-    return hf_hub_download(
-        repo_id="weakyy/image-captioning-baseline-model",
-        filename=filename,
-        repo_type="model"
-        revision="main"
-    )
+    try:
+        return hf_hub_download(
+            repo_id="weakyy/image-captioning-baseline-model",
+            filename=filename,
+            repo_type="model"
+        )
+    except Exception as e:
+        print(f"Failed to download {filename}: {str(e)}")
+        return None
 
-# Model loading from Hugging Face
 def load_baseline_model():
-    # ✅ Download correct file
-    checkpoint_path = download_file_from_hf("best_model.pth")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-
-    # ✅ Extract vocab from checkpoint
-    vocab = checkpoint["vocab"]
-    vocab_size = len(vocab["word2idx"])
-
-    # ✅ Rebuild models
+    # Download vocabulary files
+    vocab_path = download_file_from_hf("vocab.pkl")
+    idx2word_path = download_file_from_hf("idx2word.pkl")
+    word2idx_path = download_file_from_hf("word2idx.pkl")
+    
+    # Load vocabulary
+    with open(vocab_path, 'rb') as f:
+        vocab = pickle.load(f)
+    with open(idx2word_path, 'rb') as f:
+        idx2word = pickle.load(f)
+    with open(word2idx_path, 'rb') as f:
+        word2idx = pickle.load(f)
+    
+    # Combine vocab components
+    vocab = {
+        'word2idx': word2idx,
+        'idx2word': idx2word,
+        **vocab
+    }
+    
+    # Download and load encoder
     encoder = EncoderCNN(embed_size=256).to(device)
-    decoder = DecoderRNN(embed_size=256, hidden_size=512, vocab_size=vocab_size).to(device)
-
-    # ✅ Load weights
-    encoder.load_state_dict(checkpoint["encoder"])
-    decoder.load_state_dict(checkpoint["decoder"])
-
+    encoder_path = download_file_from_hf("encoder.pth")
+    encoder.load_state_dict(torch.load(encoder_path, map_location=device))
+    
+    # Download and load decoder
+    decoder = DecoderRNN(
+        embed_size=256,
+        hidden_size=512,
+        vocab_size=len(vocab['word2idx'])
+    ).to(device)
+    decoder_path = download_file_from_hf("decoder.pth")
+    decoder.load_state_dict(torch.load(decoder_path, map_location=device))
+    
     encoder.eval()
     decoder.eval()
-
+    
     return encoder, decoder, vocab
 
-
-    
-def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
+ def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
     encoder_out = encoder(image_tensor)  # (1, num_pixels, encoder_dim)
     encoder_dim = encoder_out.size(-1)
     num_pixels = encoder_out.size(1)
