@@ -28,24 +28,18 @@ def download_file_from_hf(filename):
         return None
 
 def load_baseline_model():
-    encoder = EncoderCNN(embed_size=2048).to(device)
+    checkpoint_path = download_file_from_hf("best_model.pth")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
 
-    # We'll load vocab first to get its size
-    vocab_path = download_file_from_hf("vocab.pkl")
-    with open(vocab_path, "rb") as f:
-        vocab = pickle.load(f)
+    vocab = checkpoint['vocab']
+    encoder = EncoderCNN(embed_size=512).to(device)
+    decoder = DecoderRNN(embed_size=512, hidden_size=512, vocab_size=len(vocab)).to(device)
 
-    decoder = DecoderRNN(
-        embed_size=2048,
-        hidden_size=512,
-        vocab_size=len(vocab)
-    ).to(device)
-
-    # Load model weights from individual files
-    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location=device), strict=False)
-    decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), map_location=device), strict=False)
+    encoder.load_state_dict(checkpoint['encoder'], strict=False)
+    decoder.load_state_dict(checkpoint['decoder'], strict=False)
 
     return encoder, decoder, vocab
+
 
 def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
     features = encoder(image_tensor)
