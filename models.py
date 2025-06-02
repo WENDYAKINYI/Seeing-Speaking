@@ -29,12 +29,17 @@ class DecoderRNN(nn.Module):
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.dropout = nn.Dropout(0.5)
 
-    def forward(self, features, captions, object_vec):
+    def forward(self, features, captions, object_vec=None):
         embeddings = self.embed(captions[:, :-1])
-        combined = features + object_vec  # both are [B, embed_size]
-        inputs = torch.cat((combined.unsqueeze(1), embeddings), 1)
+        if object_vec is not None:
+            features = features + object_vec  # combined features
+        inputs = torch.cat((features.unsqueeze(1), embeddings), 1)
         lstm_out, _ = self.lstm(inputs)
         outputs = self.linear(self.dropout(lstm_out))
         return outputs
 
-# Ensure loading logic in utils.py matches this architecture when loading encoder.pth and decoder.pth
+    def init_hidden_state(self, encoder_out_mean):
+        batch_size = encoder_out_mean.size(0)
+        h = torch.zeros((1, batch_size, self.lstm.hidden_size)).to(encoder_out_mean.device)
+        c = torch.zeros((1, batch_size, self.lstm.hidden_size)).to(encoder_out_mean.device)
+        return h, c
