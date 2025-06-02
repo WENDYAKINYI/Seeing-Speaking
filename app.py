@@ -23,11 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # --- Model Loading ---
 @st.cache_resource
 def get_models():
-    try:
-        return load_baseline_model()
-    except Exception as e:
-        st.error("❌ Failed to load models from Hugging Face.")
-        st.stop()
+    return load_baseline_model()
 
 encoder, decoder, vocab = get_models()
 
