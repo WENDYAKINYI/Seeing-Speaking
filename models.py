@@ -15,7 +15,8 @@ class EncoderCNN(nn.Module):
 
     def forward(self, images):
         with torch.no_grad():
-            features = self.resnet(images).squeeze()  # [B, 2048, 1, 1] → [B, 2048]
+            features = self.resnet(images)  # [B, 2048, 1, 1]
+            features = features.view(features.size(0), -1)  # Flatten to [B, 2048]
         features = self.linear(features)
         features = self.bn(features)
         return features  # [B, embed_size]
