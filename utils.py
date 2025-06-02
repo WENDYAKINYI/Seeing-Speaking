@@ -27,18 +27,22 @@ def download_file_from_hf(filename):
         print(f"Failed to download {filename}: {str(e)}")
         return None
 def load_baseline_model():
-    checkpoint_path = download_file_from_hf("best_model.pth")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-
-    vocab = checkpoint["vocab"]
     encoder = EncoderCNN(embed_size=256).to(device)
-    decoder = DecoderRNN(embed_size=256, hidden_size=512, vocab_size=len(vocab)).to(device)
 
-    encoder.load_state_dict(checkpoint["encoder"])
-    decoder.load_state_dict(checkpoint["decoder"])
+    # We'll load vocab first to get its size
+    vocab_path = download_file_from_hf("vocab.pkl")
+    with open(vocab_path, "rb") as f:
+        vocab = pickle.load(f)
 
-    encoder.eval()
-    decoder.eval()
+    decoder = DecoderRNN(
+        embed_size=256,
+        hidden_size=512,
+        vocab_size=len(vocab)
+    ).to(device)
+
+    # Load model weights from individual files
+    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location=device))
+    decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), map_location=device))
 
     return encoder, decoder, vocab
         
