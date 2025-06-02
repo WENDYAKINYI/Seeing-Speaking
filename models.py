@@ -1,4 +1,4 @@
-# models.py
+# models.py 
 
 import torch
 import torch.nn as nn
@@ -15,11 +15,10 @@ class EncoderCNN(nn.Module):
 
     def forward(self, images):
         with torch.no_grad():
-            features = self.resnet(images)  # [B, 2048, 1, 1]
-            features = features.view(features.size(0), -1)  # Flatten to [B, 2048]
+            features = self.resnet(images).squeeze()
         features = self.linear(features)
         features = self.bn(features)
-        return features  # [B, embed_size]
+        return features
 
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1):
@@ -32,7 +31,8 @@ class DecoderRNN(nn.Module):
     def forward(self, features, captions, object_vec=None):
         embeddings = self.embed(captions[:, :-1])
         if object_vec is not None:
-            features = features + object_vec  # combined features
+            if object_vec.shape[-1] == features.shape[-1]:
+                features = features + object_vec
         inputs = torch.cat((features.unsqueeze(1), embeddings), 1)
         lstm_out, _ = self.lstm(inputs)
         outputs = self.linear(self.dropout(lstm_out))
