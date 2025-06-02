@@ -41,7 +41,7 @@ def load_baseline_model():
     ).to(device)
 
     # Load model weights from individual files
-    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location=device))
+    encoder.load_state_dict(torch.load(download_file_from_hf("encoder.pth"), map_location=device), strict=False)
     decoder.load_state_dict(torch.load(download_file_from_hf("decoder.pth"), map_location=device))
 
     return encoder, decoder, vocab
