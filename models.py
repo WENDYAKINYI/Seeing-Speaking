@@ -1,3 +1,5 @@
+# models.py
+
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -28,12 +30,11 @@ class DecoderRNN(nn.Module):
         self.dropout = nn.Dropout(0.5)
 
     def forward(self, features, captions, object_vec):
-        # Remove <end> token from captions
         embeddings = self.embed(captions[:, :-1])
-        # Concatenate image features as the first "word"
-        # NEW: combine ResNet + YOLO object vector
         combined = features + object_vec  # both are [B, embed_size]
         inputs = torch.cat((combined.unsqueeze(1), embeddings), 1)
         lstm_out, _ = self.lstm(inputs)
         outputs = self.linear(self.dropout(lstm_out))
         return outputs
+
+# Ensure loading logic in utils.py matches this architecture when loading encoder.pth and decoder.pth
