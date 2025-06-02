@@ -1,3 +1,5 @@
+# app.py
+
 import streamlit as st
 import torch
 from torchvision import transforms
@@ -35,8 +37,9 @@ def encode_image_to_base64(image):
 
 def get_gpt4_vision_caption(base64_image):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4-vision-preview",
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -54,7 +57,7 @@ def get_gpt4_vision_caption(base64_image):
         return None
 
 # --- UI Layout ---
-st.title("Vision to Text: Baseline 🆚 OpenAI")
+st.title("Vision to Text: Baseline 🅾️ OpenAI")
 st.caption("Compare: Baseline CNN-RNN model | GPT-3.5 Enhanced | GPT-4 Vision | YOLO Object Detection")
 
 # Sidebar
@@ -75,28 +78,40 @@ with st.sidebar:
         f"Vocab Size: {len(vocab['word2idx']) if vocab else 0}"
     )
 
-# Main Content
-uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
+# --- Image Upload or URL Input ---
 example_images = {
     "Beach": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600",
     "Dog": "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=600",
     "Food": "https://images.unsplash.com/photo-1565958011703-72f8583c2708?w=600"
 }
 
-if not uploaded_file:
+st.subheader("Upload an image or provide a URL")
+col_upload, col_url = st.columns([1, 1])
+
+with col_upload:
+    uploaded_file = st.file_uploader("Upload", type=["jpg", "png", "jpeg"])
+
+with col_url:
+    url_input = st.text_input("Or enter image URL")
+
+image = None
+if uploaded_file:
+    image = load_image(uploaded_file)
+elif url_input:
+    image = load_image(url_input)
+else:
     selected = st.selectbox("Or try an example:", list(example_images.keys()))
     image = load_image(example_images[selected])
-else:
-    image = load_image(uploaded_file)
 
+# --- Processing and Outputs ---
+baseline_result = None
 if image:
     st.image(image, caption="Input Image", use_container_width=True)
-    image_tensor = preprocess_image(image, device)
+    image_tensor = preprocess_image(image, device=device)
     base64_image = encode_image_to_base64(image)
 
     col1, col2, col3 = st.columns(3)
 
-    # 1. Baseline Model
     with col1:
         st.subheader("🧠 Baseline CNN+RNN Model")
         with st.spinner("Generating baseline CNN-RNN caption..."):
@@ -108,14 +123,12 @@ if image:
                 beam_size=3
             )
             st.success(baseline_result["caption"])
-    
 
         st.write("Rate this caption:")
         if st.button("👍", key="like_baseline"):
             st.toast("Thanks for your feedback!")
         st.button("👎", key="dislike_baseline")
 
-    # 2. GPT-3.5 Enhanced Baseline Model
     with col2:
         st.subheader("🔍 GPT-3.5 Enhanced")
         if openai_enabled and 'openai_key' in st.secrets:
@@ -133,7 +146,6 @@ if image:
             st.toast("Thanks for your feedback!")
         st.button("👎", key="dislike_openai_enhancement")
 
-    # 3. GPT-4 Vision (Standalone)
     with col3:
         st.subheader("✨ GPT-4 Vision")
         if 'openai_key' in st.secrets:
@@ -146,7 +158,6 @@ if image:
         else:
             st.warning("Add OpenAI key to enable")
 
-    # 4. YOLO Object Detection (Below the columns)
     with st.expander("🔍 YOLOv5 Object Detection"):
         st.subheader("Detected Objects (YOLOv5s)")
         with st.spinner("Detecting objects..."):
@@ -156,11 +167,10 @@ if image:
             else:
                 st.warning("No objects detected.")
 
-# Footer
+# --- Footer ---
 st.divider()
 st.caption("""
-⚡ **Tip**: Baseline CNN+RNN uses the trained CNN-RNN, GPT-3.5 refines that output, 
-while GPT-4 Vision generates captions directly from pixels. YOLOv5s detects actual objects in the scene for added context.
+️ **Tip**: Baseline CNN+RNN uses a trained model, GPT-3.5 enhances it, GPT-4 Vision generates directly from pixels. YOLOv5s finds real-world objects.
 """)
 st.markdown("""
 [GitHub Repo](https://github.com/your-repo) | 
