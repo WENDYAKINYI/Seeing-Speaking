@@ -26,41 +26,22 @@ def download_file_from_hf(filename):
     except Exception as e:
         print(f"Failed to download {filename}: {str(e)}")
         return None
-
 def load_baseline_model():
-    vocab_path = download_file_from_hf("vocab.pkl")
-    idx2word_path = download_file_from_hf("idx2word.pkl")
-    word2idx_path = download_file_from_hf("word2idx.pkl")
+    checkpoint_path = download_file_from_hf("best_model.pth")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
 
-    with open(vocab_path, 'rb') as f:
-        vocab = pickle.load(f)
-    with open(idx2word_path, 'rb') as f:
-        idx2word = pickle.load(f)
-    with open(word2idx_path, 'rb') as f:
-        word2idx = pickle.load(f)
-
-    vocab = {
-        'word2idx': word2idx,
-        'idx2word': idx2word,
-        **vocab
-    }
-
+    vocab = checkpoint["vocab"]
     encoder = EncoderCNN(embed_size=256).to(device)
-    encoder_path = download_file_from_hf("encoder.pth")
-    encoder.load_state_dict(torch.load(encoder_path, map_location=device), strict=False)
+    decoder = DecoderRNN(embed_size=256, hidden_size=512, vocab_size=len(vocab)).to(device)
 
-    decoder = DecoderRNN(
-        embed_size=256,
-        hidden_size=512,
-        vocab_size=len(vocab['word2idx'])
-    ).to(device)
-    decoder_path = download_file_from_hf("decoder.pth")
-    decoder.load_state_dict(torch.load(decoder_path, map_location=device), strict=False)
+    encoder.load_state_dict(checkpoint["encoder"])
+    decoder.load_state_dict(checkpoint["decoder"])
 
     encoder.eval()
     decoder.eval()
 
     return encoder, decoder, vocab
+        
 
 def generate_baseline_caption(image_tensor, encoder, decoder, vocab, beam_size=3, max_len=20):
     features = encoder(image_tensor)
