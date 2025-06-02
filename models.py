@@ -28,7 +28,8 @@ class DecoderRNN(nn.Module):
     def forward(self, features, captions, object_vec=None):
         embeddings = self.embed(captions[:, :-1])
         if object_vec is not None:
-            features = features + object_vec  # combined features
+            if object_vec.shape[-1] == features.shape[-1]:
+                features = features + object_vec
         inputs = torch.cat((features.unsqueeze(1), embeddings), 1)
         lstm_out, _ = self.lstm(inputs)
         outputs = self.linear(self.dropout(lstm_out))
