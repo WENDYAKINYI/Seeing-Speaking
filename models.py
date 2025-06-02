@@ -8,12 +8,13 @@ class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
         super(EncoderCNN, self).__init__()
         resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-        self.resnet = nn.Sequential(*list(resnet.children())[:-1])  # Remove FC layer
+        modules = list(resnet.children())[:-1]  # Remove final FC layer
+        self.resnet = nn.Sequential(*modules)
 
     def forward(self, images):
         with torch.no_grad():
             features = self.resnet(images)  # [B, 2048, 1, 1]
-            features = features.view(features.size(0), -1)  # [B, 2048]
+            features = features.view(features.size(0), -1)  # Flatten to [B, 2048]
         return features
 
 
