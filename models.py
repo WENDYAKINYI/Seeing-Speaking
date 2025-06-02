@@ -1,9 +1,11 @@
+# models.py
+
 import torch
 import torch.nn as nn
 import torchvision.models as models
 
 class EncoderCNN(nn.Module):
-    def __init__(self, embed_size=2048):
+    def __init__(self, embed_size):
         super(EncoderCNN, self).__init__()
         resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
         modules = list(resnet.children())[:-1]  # Remove final FC layer
@@ -13,21 +15,24 @@ class EncoderCNN(nn.Module):
 
     def forward(self, images):
         with torch.no_grad():
-            features = self.resnet(images).squeeze()
+            features = self.resnet(images)  # [B, 2048, 1, 1]
+            features = features.view(features.size(0), -1)  # Flatten to [B, 2048]
         features = self.linear(features)
         features = self.bn(features)
-        return features
+        return features  # [B, embed_size]
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size=2048, hidden_size=512, vocab_size=10000, num_layers=1):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1):
         super(DecoderRNN, self).__init__()
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.dropout = nn.Dropout(0.5)
 
-    def forward(self, features, captions):
+    def forward(self, features, captions, object_vec=None):
         embeddings = self.embed(captions[:, :-1])
+        if object_vec is not None:
+            features = features + object_vec  # combined features
         inputs = torch.cat((features.unsqueeze(1), embeddings), 1)
         lstm_out, _ = self.lstm(inputs)
         outputs = self.linear(self.dropout(lstm_out))
